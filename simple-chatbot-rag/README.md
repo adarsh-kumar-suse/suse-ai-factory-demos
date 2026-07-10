@@ -375,3 +375,227 @@ and reviewed the following business day.
 | Pods **ImagePullBackOff** from `dp.apps.rancher.io` | No pull secret | Ensure the `application-collection` secret exists in the namespace, or set `global.imagePullSecrets`. |
 | GPU model stays on CPU | `nvidia.com/gpu` not schedulable / no runtime class | Confirm the GPU Operator is installed and the node advertises `nvidia.com/gpu`; set `runtimeClassName: nvidia` if required. |
 | Browser **cert warning** on Options 1–2 | Expected (HTTP / self‑signed) | Use Option 3 for a trusted cert. |
+
+---
+
+# vLLM Inference Endpoint Services — Access Guide
+
+## Services Overview
+
+| Service | Type | Purpose | Cluster Port | NodePort |
+|---|---|---|---|---|
+| `vllm-router-service` | NodePort | Request router/load balancer | 80 | 31777 |
+| `vllm-llama-3-2-1b-engine-service` | NodePort | LLM inference engine | 80 | 31142 |
+
+---
+
+## Access Methods
+
+### 1. External Access (from outside cluster)
+
+Use the node IP + NodePort:
+
+```
+http://<NODE_IP>:31777
+```
+
+### 2. Internal Access (from within cluster)
+
+Use service DNS name + port:
+
+```
+http://vllm-router-service.<namespace>.svc.cluster.local:80
+```
+
+### 3. Test Direct Pod Access (debugging)
+
+Use `kubectl port-forward` or exec into a pod to reach the service directly.
+
+---
+
+## Port Mappings
+
+**vllm-router-service:**
+
+| Port | Target | Description | NodePort |
+|---|---|---|---|
+| 80 | 8000 | OpenAI API endpoint | 31777 |
+| 9000 | 9000 | LMCache | 32581 |
+
+**vllm-llama-3-2-1b-engine-service:**
+
+| Port | Target | Description | NodePort |
+|---|---|---|---|
+| 80 | 8000 | vLLM API endpoint | 31142 |
+| 55555 | 55555 | ZMQ messaging | 32539 |
+| 9999 | 9999 | UCX transport | 30921 |
+
+---
+
+## Example Usage
+
+### Chat Completion via Router (recommended)
+
+```bash
+curl http://<NODE_IP>:31777/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta-llama/Llama-3.2-1B-Instruct",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "temperature": 0.7
+  }'
+```
+
+### Direct Inference on Engine
+
+```bash
+curl http://<NODE_IP>:31142/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta-llama/Llama-3.2-1B-Instruct",
+    "prompt": "Hello world",
+    "max_tokens": 100
+  }'
+```
+
+### Check Models Available
+
+```bash
+curl http://<NODE_IP>:31777/v1/models
+```
+
+> **Note:** Replace `<NODE_IP>` with the actual IP address of any node in your cluster.
+
+---
+
+# LiteLLM + vLLM Blueprint — Step-by-Step Deployment
+
+## Deployment Order
+
+1. Create namespace
+2. Create required secrets
+3. Apply SUSE AI Factory Blueprint
+4. Wait for LiteLLM + vLLM pods
+5. Open LiteLLM UI / API
+6. Test OpenAI-compatible API
+
+---
+
+## Step 1. Create a Namespace
+
+Choose one namespace for this demo. Example:
+
+```bash
+export NS=llm-gateway-demo
+
+kubectl create namespace $NS
+```
+
+> **Important:** Everything must go into this same namespace.
+
+---
+
+## Step 2. Create LiteLLM Credentials Secret
+
+Run this:
+
+```bash
+kubectl create secret generic litellm-credentials \
+  --namespace $NS \
+  --from-literal=PROXY_MASTER_KEY="sk-$(openssl rand -hex 24)" \
+  --from-literal=LITELLM_SALT_KEY="sk-$(openssl rand -hex 24)" \
+  --from-literal=UI_USERNAME="admin" \
+  --from-literal=UI_PASSWORD="ChangeThisStrongPassword123!"
+```
+
+This creates four values:
+
+| Secret value | Meaning |
+|---|---|
+| `PROXY_MASTER_KEY` | Admin API key for LiteLLM |
+| `LITELLM_SALT_KEY` | Encryption key used by LiteLLM |
+| `UI_USERNAME` | LiteLLM Admin UI username |
+| `UI_PASSWORD` | LiteLLM Admin UI password |
+
+> ⚠️ **Important:** Do not change `LITELLM_SALT_KEY` later, otherwise stored LiteLLM provider keys may break.
+
+---
+
+## Step 3. Create Hugging Face Token Secret
+
+If your model is private or gated (for example `meta-llama/*`), you need a Hugging Face token:
+
+```bash
+kubectl create secret generic huggingface-token \
+  --namespace $NS \
+  --from-literal=HF_TOKEN="hf_xxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+> If you are using only public models, this may not be required.
+> For a demo, if your Blueprint expects this secret, create it with a valid token to avoid deployment failure.
+
+---
+
+## Step 4. Verify Secrets
+
+```bash
+kubectl get secret -n $NS
+```
+
+You should see:
+
+- `litellm-credentials`
+- `huggingface-token`
+
+Or check directly:
+
+```bash
+kubectl get secret litellm-credentials -n $NS
+kubectl get secret huggingface-token -n $NS
+```
+
+---
+
+## Step 5. Apply the Blueprint
+
+If you have the Blueprint YAML file (for example `litellm-vllm-blueprint.yaml`):
+
+```bash
+kubectl apply -n $NS -f litellm-vllm-blueprint.yaml
+```
+
+Or from **SUSE AI Factory / Rancher UI**:
+
+1. Rancher UI → **AI Factory** → **Blueprints**
+2. Select the **LiteLLM + vLLM Blueprint**
+3. Choose namespace: `llm-gateway-demo`
+4. Deploy
+
+> The key point is: deploy the Blueprint into the same namespace where you created the secrets.
+
+---
+
+## Step 6. Check if Pods Are Running
+
+```bash
+kubectl get pods -n $NS
+```
+
+You should expect pods related to:
+
+- `litellm`
+- `vllm`
+- `database` / `postgresql`
+
+Watch until everything becomes Running:
+
+```bash
+kubectl get pods -n $NS -w
+```
+
+If something fails:
+
+```bash
+kubectl get events -n $NS --sort-by=.lastTimestamp
+kubectl describe pod <pod-name> -n $NS
+```

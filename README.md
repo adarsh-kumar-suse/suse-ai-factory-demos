@@ -35,5 +35,5 @@ at the cluster's ingress controller to reach it. The hostname can also be patche
 
 If you want to utilize a GPU you need to enable the GPU under the ollama settings
 
-![Edit Helm](../assets/Simple_Chatbot_with_RAG-ollama_enable.png)
+![Edit Helm](./assets/Simple_Chatbot_with_RAG-ollama_enable.png)
 
