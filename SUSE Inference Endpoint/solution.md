@@ -2,12 +2,9 @@
 
 ## Before - Without editing the blueprint
 
-<video src="../assets/suse-ai-factory-demos-inference-before-final.mp4" controls width="100%">
-  Your browser does not support the video tag.
-</video>
+[![Watch the demo video](../assets/suse-ai-factory-demos-inference-before-final.mp4)](../assets/suse-ai-factory-demos-inference-before-final.mp4)
 
-
-
+> If the video preview does not render in GitHub, click the link above to open the MP4.
 
 ```
 current chart - https://github.com/SUSE/aif/blob/main/charts/aif-operator/files/blueprints/inference-endpoint-litellm-vllm-1.0.0.yaml
@@ -19,7 +16,7 @@ current chart - https://github.com/SUSE/aif/blob/main/charts/aif-operator/files/
 - Because PostgreSQL never initializes, litellm cannot connect to DB and also crash loops.
 
 ### other issues -is somebody wants to pay attention
-- Insecure Hardcoded Passwords: The fields auth.password and auth.postgres-password contain default strings (ChangeMe-litellm-db-password). Keep these empty if you inject them from external secrets or use automated secret generation.
+- Insecure Hardcoded Passwords: The fields auth.password and auth.postgres-password contain default strings (ChangeMe-litellm-db-password). Keep these empty if you inject them from external secrets or[...]
 - not letting the user to select the service type - without that i dont know how the user is goint to access
 - no information regarding gpu is being provided as asked
 - assuming the user is smart and can create the hugging face and litellm-credentials crediential without document or help texts 
@@ -46,11 +43,3 @@ current chart - https://github.com/SUSE/aif/blob/main/charts/aif-operator/files/
 +      volume-permissions:
 +        enabled: true
 ```
-
-
-
-
-
-
-
-
