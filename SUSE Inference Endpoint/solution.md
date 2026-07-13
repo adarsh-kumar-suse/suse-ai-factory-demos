@@ -2,6 +2,10 @@
 
 ## Before - Without editing the blueprint
 
+<video src="../assets/suse-ai-factory-demos-inference-before-final.mp4" autoplay loop muted playsinline width="100%">
+</video>
+
+
 
 ```
 current chart - https://github.com/SUSE/aif/blob/main/charts/aif-operator/files/blueprints/inference-endpoint-litellm-vllm-1.0.0.yaml
