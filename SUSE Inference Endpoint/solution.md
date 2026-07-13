@@ -2,8 +2,10 @@
 
 ## Before - Without editing the blueprint
 
-<video src="../assets/suse-ai-factory-demos-inference-before-final.mp4" autoplay loop muted playsinline width="100%">
+<video src="../assets/suse-ai-factory-demos-inference-before-final.mp4" controls width="100%">
+  Your browser does not support the video tag.
 </video>
+
 
 
 
